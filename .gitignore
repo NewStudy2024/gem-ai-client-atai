@@ -1,0 +1,66 @@
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+venv/
+env/
+.venv/
+ENV/
+*.env
+*.venv
+
+# Environment variables and secrets
+*.env
+*.flaskenv
+instance/
+config.py
+
+# Flask-related files
+*.sqlite3
+*.db
+*.log
+
+# IDE and editor-specific files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Pytest cache
+.pytest_cache/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Static files generated dynamically
+media/
+uploads/
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+
+# Test and temporary files
+.tox/
+tests/__pycache__/
+coverage.xml
+*.coverage
+.cache/
+.nox/
+
+# Documentation and build directories
+docs/_build/
+build/
+dist/
+*.egg-info/
+
+
+keys/
+*.pem

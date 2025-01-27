@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  flask-app:
+    build:
+      context: .
+    ports:
+      - "5001:5001"
+    env_file:
+      - .env  # Pass the .env file to the container
+    restart: unless-stopped  # Restart policy for the container
+    volumes:
+      - .:/app  # Mount the current directory to /app in the container for development
+    networks:
+      - shared_network
+
+networks:
+  shared_network:
+    external: true
