@@ -1,6 +1,8 @@
 import os
 import logging
-from flask import Flask, request, jsonify
+import sqlite3
+import time
+from flask import Flask, request, jsonify, render_template
 import google.generativeai as genai
 from dotenv import load_dotenv
 
@@ -41,6 +43,52 @@ except Exception as e:
     logger.error(f"Failed to initialize GenerativeModel: {e}")
     raise
 
+
+# Функция подключения к SQLite
+def get_db_connection():
+    # request_logs.db будет создаваться в корневой папке /app внутри контейнера
+    conn = sqlite3.connect('request_logs.db', check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+# Создадим таблицу при запуске, если её нет
+with get_db_connection() as conn:
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS request_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            response_time REAL
+        )
+    """)
+
+def payload_parser(response_text):
+    lines = response_text.splitlines()
+
+    temp_title = lines[0].replace("`", "") if lines else ""
+
+    if temp_title == "markdown":
+        lower_text = response_text.lower()
+        topic_index = lower_text.find("topic:")
+
+        if topic_index != -1:
+            topic_index_end = topic_index + len("topic:")
+
+            next_newline_index = response_text.find("\n", topic_index_end)
+            if next_newline_index == -1:
+                next_newline_index = len(response_text)
+
+            topic_value = response_text[topic_index_end:next_newline_index].strip()
+            if topic_value:
+                temp_title = topic_value
+
+    temp_body = "\n".join(lines[1:]) if len(lines) > 1 else ""
+
+    return jsonify({
+        'title': temp_title,
+        'body': temp_body
+    }), 200
+
+
 @app.route('/process', methods=['POST'])
 def process_request():
     """
@@ -48,6 +96,7 @@ def process_request():
     Expects JSON payload with 'system_instruction' (optional) and 'data'.
     Returns the model's response.
     """
+    start_time = time.time()
     try:
         # Parse JSON payload from the request
         payload = request.get_json()
@@ -76,6 +125,14 @@ def process_request():
         # Send the user input to the chat session and get the response
         response = chat_session.send_message(user_input)
 
+        elapsed = time.time() - start_time
+        logger.info(f"Request processed in {elapsed:.4f} seconds.")
+
+        with get_db_connection() as conn:
+            conn.execute(
+                "INSERT INTO request_logs (response_time) VALUES (?)",
+                (elapsed,)
+            )
 
         if system_instruction != default_system_instruction:
             # Return the model's response as JSON
@@ -84,15 +141,50 @@ def process_request():
             }), 200
 
         # Return the model's response as JSON
-        return jsonify({
-            'title': response.text.splitlines()[0].replace("`", ""),
-            'body': "\n".join(response.text.splitlines()[1:])
-        }), 200
+
+        return payload_parser(response.text)
+        # return jsonify({
+        #     'title': response.text.splitlines()[0].replace("`", ""),
+        #     'body': "\n".join(response.text.splitlines()[1:])
+        # }), 200
 
     except Exception as e:
         # Log the exception and return an error response
         logger.error(f"Error processing request: {e}")
         return jsonify({'error': 'An error occurred while processing your request.'}), 500
+
+
+@app.route('/stats', methods=['GET'])
+def get_stats():
+    """
+    Endpoint that returns basic metrics (JSON):
+    - total_requests (int)
+    - average_response_time (float)
+    """
+    try:
+        with get_db_connection() as conn:
+            row = conn.execute("""
+                SELECT COUNT(*) as total_requests,
+                       AVG(response_time) as average_response_time
+                FROM request_logs
+            """).fetchone()
+
+        return jsonify({
+            'total_requests': row['total_requests'] or 0,
+            'average_response_time': round(row['average_response_time'] or 0, 4)
+        })
+    except Exception as e:
+        logger.error(f"Error retrieving stats: {e}")
+        return jsonify({'error': 'Could not retrieve stats.'}), 500
+
+@app.route('/dashboard', methods=['GET'])
+def dashboard():
+    """
+    Returns an HTML template that visualizes the data from /stats using Plotly.
+    """
+    return render_template('dashboard.html')
+
+
 
 if __name__ == '__main__':
     app.run(

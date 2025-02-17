@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Flask Stats Dashboard</title>
+  <!-- Load Plotly -->
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+  <h1>Server Usage Statistics</h1>
+
+  <div id="chart-requests" style="width: 600px; height: 400px;"></div>
+  <div id="chart-response-time" style="width: 600px; height: 400px;"></div>
+
+  <script>
+    // On page load, request data from /stats
+    fetch('/stats')
+      .then(response => response.json())
+      .then(data => {
+        const requestsTrace = {
+          x: ['Total Requests'],
+          y: [data.total_requests],
+          type: 'bar',
+          marker: { color: 'rgba(55, 128, 191, 0.7)' },
+          name: 'Total Requests'
+        };
+        const layoutRequests = {
+          title: 'Total Requests',
+          yaxis: { title: 'Count' }
+        };
+        Plotly.newPlot('chart-requests', [requestsTrace], layoutRequests);
+
+        const responseTimeTrace = {
+          x: ['Avg Response Time (sec)'],
+          y: [data.average_response_time],
+          type: 'bar',
+          marker: { color: 'rgba(255, 99, 71, 0.7)' },
+          name: 'Response Time'
+        };
+        const layoutResponseTime = {
+          title: 'Average Response Time (seconds)',
+          yaxis: { title: 'Seconds' }
+        };
+        Plotly.newPlot('chart-response-time', [responseTimeTrace], layoutResponseTime);
+      })
+      .catch(error => {
+        console.error('Error fetching /stats:', error);
+      });
+  </script>
+</body>
+</html>
