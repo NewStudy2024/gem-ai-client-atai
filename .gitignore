@@ -21,7 +21,6 @@ config.py
 *.sqlite3
 *.db
 *.log
-
 # IDE and editor-specific files
 .vscode/
 .idea/
